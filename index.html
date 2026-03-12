@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>여행 날씨 체커 ✈️</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary: #4F8EF7;
+      --primary-dark: #2563EB;
+      --secondary: #F0F7FF;
+      --text: #1e293b;
+      --text-light: #64748b;
+      --border: #e2e8f0;
+      --card-bg: #ffffff;
+      --shadow: 0 4px 20px rgba(79,142,247,0.10);
+      --radius: 16px;
+      --rain: #60a5fa;
+      --snow: #a5b4fc;
+      --sun: #fbbf24;
+      --cloud: #94a3b8;
+    }
+
+    body {
+      font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      background: linear-gradient(135deg, #e0ecff 0%, #f8f9ff 60%, #fff7ed 100%);
+      min-height: 100vh;
+      color: var(--text);
+      padding: 0 0 60px 0;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(120deg, #4F8EF7 0%, #818cf8 100%);
+      color: white;
+      text-align: center;
+      padding: 48px 20px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+    header::before {
+      content: ''; position: absolute;
+      top: -60px; right: -60px; width: 220px; height: 220px;
+      background: rgba(255,255,255,0.07); border-radius: 50%;
+    }
+    header::after {
+      content: ''; position: absolute;
+      bottom: -40px; left: -40px; width: 160px; height: 160px;
+      background: rgba(255,255,255,0.06); border-radius: 50%;
+    }
+    header h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; }
+    header p  { margin-top: 8px; font-size: 1rem; opacity: 0.85; }
+    .forecast-badge {
+      display: inline-block;
+      margin-top: 14px;
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 999px;
+      padding: 6px 18px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    /* ── Container ── */
+    .container { max-width: 700px; margin: 0 auto; padding: 0 16px; }
+
+    /* ── Search card ── */
+    .search-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 28px 24px;
+      margin-top: -28px;
+      position: relative;
+      z-index: 10;
+      overflow: visible;
+    }
+    .search-card h2 {
+      font-size: 1rem; font-weight: 700; color: var(--text-light);
+      margin-bottom: 18px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 140px; }
+    .form-group label { font-size: 0.78rem; font-weight: 600; color: var(--text-light); }
+    .form-group input[type="text"] {
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      color: var(--text);
+      outline: none;
+      transition: border 0.2s;
+      background: #fafbff;
+    }
+    .form-group input[type="text"]:focus { border-color: var(--primary); background: #fff; }
+
+    /* ── Destination autocomplete ── */
+    .destination-wrapper { position: relative; }
+    .destination-wrapper input { width: 100%; }
+    #suggest-list {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: white; border: 1.5px solid var(--border);
+      border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.10);
+      z-index: 200; max-height: 200px; overflow-y: auto; display: none;
+    }
+    #suggest-list li {
+      list-style: none; padding: 10px 14px; cursor: pointer;
+      font-size: 0.9rem; display: flex; align-items: center; gap: 8px;
+      transition: background 0.15s;
+    }
+    #suggest-list li:hover { background: var(--secondary); }
+    #suggest-list li .country { font-size: 0.75rem; color: var(--text-light); }
+
+    /* ── Custom date button ── */
+    .date-btn {
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 14px;
+      font-size: 0.95rem;
+      color: var(--text);
+      background: #fafbff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      text-align: left;
+      transition: border 0.2s, background 0.2s;
+      user-select: none;
+    }
+    .date-btn:hover { border-color: var(--primary); background: #fff; }
+    .date-btn.active { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px rgba(79,142,247,0.15); }
+    .date-btn .date-icon { font-size: 1rem; }
+    .date-btn .date-val { flex: 1; font-weight: 500; }
+    .date-btn .date-val.placeholder { color: var(--text-light); font-weight: 400; }
+
+    /* ── Calendar popup ── */
+    .cal-wrapper { position: relative; }
+    .cal-popup {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      background: white;
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.14);
+      z-index: 300;
+      padding: 16px;
+      min-width: 300px;
+      display: none;
+    }
+    .cal-popup.open { display: block; }
+
+    /* header */
+    .cal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .cal-nav {
+      background: none; border: none; cursor: pointer;
+      font-size: 1.1rem; padding: 4px 10px; border-radius: 8px;
+      color: var(--text-light); transition: background 0.15s;
+    }
+    .cal-nav:hover { background: var(--secondary); color: var(--text); }
+    .cal-title { font-weight: 700; font-size: 0.95rem; }
+
+    /* legend */
+    .cal-legend {
+      display: flex; gap: 12px; margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .cal-legend-item {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 0.72rem; color: var(--text-light);
+    }
+    .legend-dot {
+      width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+    }
+    .legend-dot.forecast { background: #bfdbfe; }
+    .legend-dot.today    { background: #4F8EF7; border-radius: 50%; }
+    .legend-dot.selected { background: #1d4ed8; border-radius: 50%; }
+
+    /* day-of-week row */
+    .cal-dow {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      margin-bottom: 4px;
+    }
+    .cal-dow span {
+      text-align: center; font-size: 0.7rem; font-weight: 600;
+      color: var(--text-light); padding: 4px 0;
+    }
+    .cal-dow span:first-child { color: #ef4444; }
+    .cal-dow span:last-child  { color: #3b82f6; }
+
+    /* grid */
+    .cal-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+    }
+    .cal-cell {
+      position: relative;
+      text-align: center; font-size: 0.82rem;
+      padding: 0; height: 34px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.12s;
+      border-radius: 0;
+    }
+    .cal-cell.empty { cursor: default; }
+
+    /* number circle */
+    .cal-num {
+      width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%; position: relative; z-index: 1;
+      transition: background 0.12s, color 0.12s;
+    }
+
+    /* states */
+    .cal-cell.past { cursor: not-allowed; }
+    .cal-cell.past .cal-num { color: #cbd5e1; }
+
+    .cal-cell.forecast { }
+    .cal-cell.forecast .cal-num { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+    .cal-cell.forecast .cal-num:hover { background: #bfdbfe; }
+
+    .cal-cell.today .cal-num {
+      background: #4F8EF7; color: white; font-weight: 800;
+    }
+
+    .cal-cell.selected .cal-num { background: #1d4ed8 !important; color: white !important; font-weight: 700; }
+
+    .cal-cell:not(.past):not(.empty):not(.selected) .cal-num:hover {
+      background: #dbeafe; color: #1e40af;
+    }
+
+    /* in-range highlight (background strip) */
+    .cal-cell.in-range { background: #eff6ff; }
+    .cal-cell.range-start { background: linear-gradient(to right, transparent 50%, #eff6ff 50%); }
+    .cal-cell.range-end   { background: linear-gradient(to left,  transparent 50%, #eff6ff 50%); }
+    .cal-cell.range-start.range-end { background: transparent; }
+
+    /* weekend colors in number */
+    .cal-cell.weekend-sun:not(.selected) .cal-num { color: #ef4444; }
+    .cal-cell.weekend-sat:not(.selected) .cal-num { color: #3b82f6; }
+    .cal-cell.forecast.weekend-sun .cal-num { color: #dc2626; }
+    .cal-cell.forecast.weekend-sat .cal-num { color: #2563eb; }
+
+    /* forecast-dot under number */
+    .forecast-dot {
+      position: absolute;
+      bottom: 3px; left: 50%; transform: translateX(-50%);
+      width: 4px; height: 4px; border-radius: 50%;
+      background: #93c5fd;
+    }
+    .cal-cell.selected .forecast-dot { background: rgba(255,255,255,0.7); }
+
+    /* Search button */
+    .btn-search {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: linear-gradient(90deg, var(--primary) 0%, #818cf8 100%);
+      color: white; border: none; border-radius: 10px;
+      padding: 11px 28px; font-size: 1rem; font-weight: 700;
+      cursor: pointer; margin-top: 18px; width: 100%;
+      transition: opacity 0.2s, transform 0.1s;
+      box-shadow: 0 4px 14px rgba(79,142,247,0.3);
+    }
+    .btn-search:hover { opacity: 0.93; transform: translateY(-1px); }
+    .btn-search:active { transform: scale(0.98); }
+    .btn-search:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── State messages ── */
+    .state-msg { text-align: center; padding: 40px 20px; color: var(--text-light); display: none; }
+    .state-msg .icon { font-size: 3rem; margin-bottom: 12px; }
+    .state-msg p { font-size: 1rem; }
+    .state-msg small {
+      display: block; margin-top: 10px; font-size: 0.82rem; color: #64748b;
+      background: #f1f5f9; border-radius: 8px; padding: 8px 14px; line-height: 1.5;
+    }
+
+    /* ── Summary ── */
+    #summary { margin-top: 28px; display: none; }
+    .summary-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .summary-header h3 { font-size: 1.1rem; font-weight: 800; }
+    .summary-header .location-name { font-size: 0.85rem; color: var(--text-light); }
+
+    .chips-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+    .chip {
+      display: flex; align-items: center; gap: 7px;
+      padding: 10px 16px; border-radius: 999px; font-size: 0.88rem;
+      font-weight: 600; flex: 1; min-width: 120px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .chip-icon { font-size: 1.3rem; }
+    .chip-text { display: flex; flex-direction: column; }
+    .chip-text .chip-label { font-size: 0.7rem; opacity: 0.7; font-weight: 500; }
+    .chip-text .chip-value { font-size: 0.9rem; font-weight: 700; }
+    .chip.rain   { background: #dbeafe; color: #1d4ed8; }
+    .chip.outfit { background: #fef3c7; color: #92400e; }
+    .chip.coat   { background: #ede9fe; color: #5b21b6; }
+    .chip.temp   { background: #dcfce7; color: #166534; }
+
+    /* ── Day cards ── */
+    .day-cards { display: flex; flex-direction: column; gap: 10px; }
+    .day-card {
+      background: var(--card-bg); border-radius: var(--radius);
+      padding: 16px 20px;
+      display: grid; grid-template-columns: 80px 1fr auto;
+      align-items: center; gap: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      border-left: 4px solid transparent; transition: transform 0.15s;
+    }
+    .day-card:hover { transform: translateX(2px); }
+    .day-card.rain-day  { border-left-color: var(--rain); }
+    .day-card.snow-day  { border-left-color: var(--snow); }
+    .day-card.sun-day   { border-left-color: var(--sun); }
+    .day-card.cloud-day { border-left-color: var(--cloud); }
+
+    .day-date { font-size: 0.82rem; color: var(--text-light); }
+    .day-dow  { font-size: 1rem; font-weight: 700; }
+    .day-dow.weekend { color: #ef4444; }
+    .day-info { display: flex; align-items: center; gap: 10px; }
+    .day-weather-icon { font-size: 1.8rem; }
+    .day-desc   { font-size: 0.85rem; color: var(--text-light); }
+    .day-precip { font-size: 0.78rem; color: var(--rain); font-weight: 600; }
+    .day-right  { text-align: right; }
+    .day-temp-max { font-size: 1.1rem; font-weight: 800; }
+    .day-temp-min { font-size: 0.85rem; color: var(--text-light); }
+    .day-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-size: 0.7rem; font-weight: 600; margin-top: 4px;
+    }
+
+    /* ── Out-of-forecast warning ── */
+    .forecast-warn {
+      background: #fffbeb; border: 1px solid #fcd34d;
+      border-radius: 10px; padding: 10px 14px;
+      font-size: 0.82rem; color: #92400e; margin-bottom: 14px;
+    }
+
+    .footer-note {
+      text-align: center; margin-top: 28px;
+      font-size: 0.78rem; color: #94a3b8;
+    }
+
+    @media (max-width: 480px) {
+      header h1 { font-size: 1.5rem; }
+      .search-card { padding: 20px 16px; }
+      .day-card { grid-template-columns: 65px 1fr auto; padding: 12px 14px; gap: 8px; }
+      .cal-popup { min-width: unset; width: calc(100vw - 48px); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>✈️ 여행 날씨 체커</h1>
+  <p>여행지와 기간을 입력하면 우산·옷차림·외투를 알려드려요</p>
+  <div class="forecast-badge" id="forecast-range-note">📅 날씨 확인 가능 기간 로딩 중...</div>
+</header>
+
+<div class="container">
+  <div class="search-card">
+    <h2>🔍 여행 정보 입력</h2>
+    <div class="form-row">
+      <!-- 여행지 -->
+      <div class="form-group" style="flex: 2; min-width: 180px;">
+        <label>여행지</label>
+        <div class="destination-wrapper">
+          <input type="text" id="dest-input" placeholder="예: 도쿄, Paris, New York" autocomplete="off" />
+          <ul id="suggest-list"></ul>
+        </div>
+      </div>
+
+      <!-- 출발일 -->
+      <div class="form-group">
+        <label>출발일</label>
+        <div class="cal-wrapper" id="start-wrapper">
+          <button class="date-btn" id="start-btn" type="button" onclick="toggleCal('start')">
+            <span class="date-icon">📅</span>
+            <span class="date-val placeholder" id="start-display">날짜 선택</span>
+          </button>
+          <div class="cal-popup" id="start-cal"></div>
+        </div>
+      </div>
+
+      <!-- 귀국일 -->
+      <div class="form-group">
+        <label>귀국일</label>
+        <div class="cal-wrapper" id="end-wrapper">
+          <button class="date-btn" id="end-btn" type="button" onclick="toggleCal('end')">
+            <span class="date-icon">🏠</span>
+            <span class="date-val placeholder" id="end-display">날짜 선택</span>
+          </button>
+          <div class="cal-popup" id="end-cal"></div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-search" id="search-btn" onclick="searchWeather()">
+      <span>🌤️</span> 날씨 확인하기
+    </button>
+  </div>
+
+  <div class="state-msg" id="loading-msg">
+    <div class="icon">🌏</div>
+    <p>날씨 정보를 불러오는 중...</p>
+  </div>
+
+  <div class="state-msg" id="error-msg">
+    <div class="icon">😥</div>
+    <p id="error-text">정보를 불러오지 못했어요.</p>
+    <small id="error-hint"></small>
+  </div>
+
+  <div id="summary">
+    <div class="summary-header">
+      <h3 id="summary-title">📍</h3>
+      <span class="location-name" id="summary-sub"></span>
+    </div>
+    <div id="forecast-warn" class="forecast-warn" style="display:none"></div>
+    <div class="chips-row" id="chips-row"></div>
+    <div class="day-cards" id="day-cards"></div>
+    <div class="footer-note">데이터 제공: Open-Meteo (최대 16일 예보) · WMO 기상 코드 기반</div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// Utils: 로컬 날짜 포맷 (타임존 버그 방지)
+function fmt(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+function parseLocal(str) {          // "YYYY-MM-DD" → Date (local midnight)
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+function addDays(d, n) {
+  const r = new Date(d); r.setDate(r.getDate() + n); return r;
+}
+function sameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() &&
+         a.getMonth()    === b.getMonth()    &&
+         a.getDate()     === b.getDate();
+}
+
+// ─────────────────────────────────────────────
+// Calendar state
+const CAL = {
+  today:       null,   // Date
+  forecastEnd: null,   // today + 16
+  startDate:   null,   // selected start (Date)
+  endDate:     null,   // selected end   (Date)
+  viewYear:    0,
+  viewMonth:   0,
+  openFor:     null,   // 'start' | 'end' | null
+};
+
+(function init() {
+  CAL.today       = new Date(); CAL.today.setHours(0,0,0,0);
+  CAL.forecastEnd = addDays(CAL.today, 16);
+  CAL.startDate   = new Date(CAL.today);
+  CAL.endDate     = addDays(CAL.today, 7);
+  CAL.viewYear    = CAL.today.getFullYear();
+  CAL.viewMonth   = CAL.today.getMonth();
+  updateDisplays();
+
+  // 헤더 예보 가능 기간 표시
+  const fe = CAL.forecastEnd;
+  document.getElementById('forecast-range-note').textContent =
+    `📅 ${fe.getMonth()+1}월 ${fe.getDate()}일까지의 날씨 확인 가능!`;
+})();
+
+function updateDisplays() {
+  const s = document.getElementById('start-display');
+  const e = document.getElementById('end-display');
+  if (CAL.startDate) {
+    s.textContent = fmtKo(CAL.startDate);
+    s.classList.remove('placeholder');
+  }
+  if (CAL.endDate) {
+    e.textContent = fmtKo(CAL.endDate);
+    e.classList.remove('placeholder');
+  }
+}
+function fmtKo(d) {
+  return `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}`;
+}
+
+// ─────────────────────────────────────────────
+// Calendar open/close
+function toggleCal(which) {
+  if (CAL.openFor === which) {
+    closeCal();
+    return;
+  }
+  closeCal();
+  CAL.openFor = which;
+  const ref = which === 'start' ? CAL.startDate : CAL.endDate;
+  if (ref) { CAL.viewYear = ref.getFullYear(); CAL.viewMonth = ref.getMonth(); }
+  renderCal(which);
+  document.getElementById(which + '-cal').classList.add('open');
+  document.getElementById(which + '-btn').classList.add('active');
+}
+
+function closeCal() {
+  ['start','end'].forEach(w => {
+    document.getElementById(w + '-cal').classList.remove('open');
+    document.getElementById(w + '-btn').classList.remove('active');
+  });
+  CAL.openFor = null;
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.cal-wrapper') && !e.target.closest('.destination-wrapper')) {
+    closeCal();
+    hideSuggest();
+  }
+});
+
+// ─────────────────────────────────────────────
+// Render calendar
+function renderCal(which) {
+  const el = document.getElementById(which + '-cal');
+  const year = CAL.viewYear, month = CAL.viewMonth;
+  const monthNames = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+  const firstDay = new Date(year, month, 1).getDay();  // 0=Sun
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  let html = `
+    <div class="cal-header">
+      <button class="cal-nav" onclick="calNav(-1,'${which}')">‹</button>
+      <span class="cal-title">${year}년 ${monthNames[month]}</span>
+      <button class="cal-nav" onclick="calNav(1,'${which}')">›</button>
+    </div>
+    <div class="cal-legend">
+      <div class="cal-legend-item"><div class="legend-dot forecast"></div>예보 가능 (오늘~16일)</div>
+      <div class="cal-legend-item"><div class="legend-dot today"></div>오늘</div>
+    </div>
+    <div class="cal-dow">
+      <span>일</span><span>월</span><span>화</span><span>수</span>
+      <span>목</span><span>금</span><span>토</span>
+    </div>
+    <div class="cal-grid">
+  `;
+
+  // Empty cells before 1st
+  for (let i = 0; i < firstDay; i++) {
+    html += `<div class="cal-cell empty"></div>`;
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month, d);
+    const dow  = date.getDay();
+
+    const isPast     = date < CAL.today && !sameDay(date, CAL.today);
+    const isForecast = date >= CAL.today && date <= CAL.forecastEnd;
+    const isToday    = sameDay(date, CAL.today);
+    const isStart    = CAL.startDate && sameDay(date, CAL.startDate);
+    const isEnd      = CAL.endDate   && sameDay(date, CAL.endDate);
+    const isSelected = isStart || isEnd;
+    const inRange    = CAL.startDate && CAL.endDate &&
+                       date > CAL.startDate && date < CAL.endDate;
+
+    let cls = 'cal-cell';
+    if (isPast)     cls += ' past';
+    if (isForecast && !isToday) cls += ' forecast';
+    if (isToday)    cls += ' today';
+    if (isSelected) cls += ' selected';
+    if (inRange)    cls += ' in-range';
+    if (isStart && !isEnd) cls += ' range-start';
+    if (isEnd   && !isStart) cls += ' range-end';
+    if (dow === 0)  cls += ' weekend-sun';
+    if (dow === 6)  cls += ' weekend-sat';
+
+    const dot = isForecast ? `<span class="forecast-dot"></span>` : '';
+    const onclick = isPast ? '' : `onclick="calSelect(${year},${month},${d},'${which}')"`;
+
+    html += `<div class="${cls}" ${onclick}>
+      <div class="cal-num">${d}</div>${dot}
+    </div>`;
+  }
+
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function calNav(dir, which) {
+  CAL.viewMonth += dir;
+  if (CAL.viewMonth > 11) { CAL.viewMonth = 0;  CAL.viewYear++; }
+  if (CAL.viewMonth < 0)  { CAL.viewMonth = 11; CAL.viewYear--; }
+  renderCal(which);
+}
+
+function calSelect(y, m, d, which) {
+  const chosen = new Date(y, m, d);
+
+  if (which === 'start') {
+    CAL.startDate = chosen;
+    // 귀국일이 출발일보다 앞이면 귀국일도 같이 이동
+    if (CAL.endDate && CAL.endDate < CAL.startDate) {
+      CAL.endDate = new Date(CAL.startDate);
+    }
+    closeCal();
+    // 자동으로 귀국일 캘린더 열기
+    CAL.viewYear  = CAL.startDate.getFullYear();
+    CAL.viewMonth = CAL.startDate.getMonth();
+    setTimeout(() => toggleCal('end'), 80);
+  } else {
+    if (CAL.startDate && chosen < CAL.startDate) {
+      // 귀국일이 출발일보다 앞이면 swap
+      CAL.endDate   = new Date(CAL.startDate);
+      CAL.startDate = chosen;
+    } else {
+      CAL.endDate = chosen;
+    }
+    closeCal();
+  }
+  updateDisplays();
+}
+
+// ─────────────────────────────────────────────
+// Geocoding autocomplete
+let selectedGeo = null, geoTimeout = null;
+
+document.getElementById('dest-input').addEventListener('input', function() {
+  clearTimeout(geoTimeout);
+  selectedGeo = null;
+  const q = this.value.trim();
+  if (q.length < 2) { hideSuggest(); return; }
+  geoTimeout = setTimeout(() => fetchSuggestions(q), 400);
+});
+
+async function fetchSuggestions(q) {
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 5000);
+    const res = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=ko`,
+      { mode: 'cors', signal: ctrl.signal }
+    );
+    const data = await res.json();
+    if (!data.results || data.results.length === 0) { hideSuggest(); return; }
+    showSuggest(data.results);
+  } catch { hideSuggest(); }
+}
+
+function showSuggest(results) {
+  const list = document.getElementById('suggest-list');
+  list.innerHTML = '';
+  results.forEach(r => {
+    const li = document.createElement('li');
+    const admin = [r.admin1, r.country].filter(Boolean).join(', ');
+    li.innerHTML = `<span>📍</span><span>${r.name}</span><span class="country">${admin}</span>`;
+    li.addEventListener('click', () => {
+      document.getElementById('dest-input').value =
+        r.name + (r.country ? ` (${r.country})` : '');
+      selectedGeo = {
+        lat: r.latitude, lon: r.longitude,
+        name: r.name, country: r.country || '', admin1: r.admin1 || ''
+      };
+      hideSuggest();
+    });
+    list.appendChild(li);
+  });
+  list.style.display = 'block';
+}
+function hideSuggest() {
+  document.getElementById('suggest-list').style.display = 'none';
+}
+
+// ─────────────────────────────────────────────
+// WMO weather codes
+const WMO = {
+  0:  { desc: '맑음',           icon: '☀️',  type: 'sun'   },
+  1:  { desc: '대체로 맑음',    icon: '🌤️',  type: 'sun'   },
+  2:  { desc: '구름 많음',      icon: '⛅',   type: 'cloud' },
+  3:  { desc: '흐림',           icon: '☁️',   type: 'cloud' },
+  45: { desc: '안개',           icon: '🌫️',  type: 'cloud' },
+  48: { desc: '짙은 안개',      icon: '🌫️',  type: 'cloud' },
+  51: { desc: '가벼운 이슬비',  icon: '🌦️',  type: 'rain'  },
+  53: { desc: '이슬비',         icon: '🌦️',  type: 'rain'  },
+  55: { desc: '짙은 이슬비',    icon: '🌧️',  type: 'rain'  },
+  61: { desc: '약한 비',        icon: '🌧️',  type: 'rain'  },
+  63: { desc: '비',             icon: '🌧️',  type: 'rain'  },
+  65: { desc: '강한 비',        icon: '🌧️',  type: 'rain'  },
+  71: { desc: '약한 눈',        icon: '🌨️',  type: 'snow'  },
+  73: { desc: '눈',             icon: '❄️',   type: 'snow'  },
+  75: { desc: '강한 눈',        icon: '❄️',   type: 'snow'  },
+  77: { desc: '싸라기눈',       icon: '🌨️',  type: 'snow'  },
+  80: { desc: '소나기',         icon: '🌦️',  type: 'rain'  },
+  81: { desc: '강한 소나기',    icon: '🌧️',  type: 'rain'  },
+  82: { desc: '매우 강한 소나기', icon: '⛈️', type: 'rain'  },
+  85: { desc: '눈 소나기',      icon: '🌨️',  type: 'snow'  },
+  86: { desc: '강한 눈 소나기', icon: '❄️',   type: 'snow'  },
+  95: { desc: '뇌우',           icon: '⛈️',  type: 'rain'  },
+  96: { desc: '우박 뇌우',      icon: '⛈️',  type: 'rain'  },
+  99: { desc: '강한 우박 뇌우', icon: '⛈️',  type: 'rain'  },
+};
+function getWmo(code) {
+  return WMO[code] || { desc: '날씨 정보 없음', icon: '🌡️', type: 'cloud' };
+}
+
+// ─────────────────────────────────────────────
+// Main search
+async function searchWeather() {
+  const destInput = document.getElementById('dest-input').value.trim();
+  if (!destInput)            { alert('여행지를 입력해주세요.'); return; }
+  if (!CAL.startDate)        { alert('출발일을 선택해주세요.'); return; }
+  if (!CAL.endDate)          { alert('귀국일을 선택해주세요.'); return; }
+  if (CAL.startDate > CAL.endDate) { alert('출발일이 귀국일보다 늦을 수 없어요.'); return; }
+
+  const startDate = fmt(CAL.startDate);
+  const endDate   = fmt(CAL.endDate);
+
+  setState('loading');
+
+  // fetch with timeout helper
+  async function apiFetch(url) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 9000);
+    try {
+      const res = await fetch(url, { mode: 'cors', signal: ctrl.signal });
+      return res;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // 알려진 API 오류 메시지 (네트워크 오류와 구분하기 위해)
+  const API_ERRORS = ['도시를 찾을 수 없어요', '도시 검색 실패', '날씨 데이터 오류', '날씨 데이터를 불러오지 못했어요'];
+
+  try {
+    let geo = selectedGeo;
+    if (!geo) {
+      const res = await apiFetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(destInput)}&count=1&language=ko`
+      );
+      if (!res.ok) throw new Error(`도시 검색 실패 (${res.status})`);
+      const data = await res.json();
+      if (!data.results || data.results.length === 0)
+        throw new Error('도시를 찾을 수 없어요. 영문 도시명으로도 시도해보세요.');
+      const r = data.results[0];
+      geo = { lat: r.latitude, lon: r.longitude, name: r.name, country: r.country || '', admin1: r.admin1 || '' };
+    }
+
+    const wRes = await apiFetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${geo.lat}&longitude=${geo.lon}` +
+      `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode` +
+      `&timezone=auto&start_date=${startDate}&end_date=${endDate}`
+    );
+    if (!wRes.ok) throw new Error(`날씨 데이터 오류 (${wRes.status})`);
+    const wData = await wRes.json();
+    if (!wData.daily) throw new Error('날씨 데이터를 불러오지 못했어요.');
+
+    renderResult(geo, wData.daily, startDate, endDate);
+    setState('result');
+  } catch (e) {
+    const msg = e?.message || '';
+    const isApiError = API_ERRORS.some(s => msg.includes(s));
+    if (isApiError) {
+      document.getElementById('error-text').textContent = msg;
+      document.getElementById('error-hint').textContent = '';
+    } else {
+      const isAborted = msg.includes('abort') || msg.includes('Abort');
+      document.getElementById('error-text').textContent =
+        isAborted ? '요청 시간이 초과됐어요.' : '날씨 데이터를 가져오지 못했어요.';
+      document.getElementById('error-hint').textContent =
+        '💡 인터넷 연결을 확인하고, Chrome 브라우저에서 파일을 직접 열어보세요.';
+    }
+    setState('error');
+  }
+}
+
+// ─────────────────────────────────────────────
+// Render result
+function renderResult(geo, daily, startDate, endDate) {
+  const { time, temperature_2m_max, temperature_2m_min,
+          precipitation_sum, precipitation_probability_max, weathercode } = daily;
+
+  const n       = time.length;
+  const avgMax  = avg(temperature_2m_max);
+  const avgMin  = avg(temperature_2m_min);
+  const avgTemp = (avgMax + avgMin) / 2;
+  const maxProb = Math.max(...precipitation_probability_max.filter(v => v != null));
+  const rainDays = precipitation_probability_max.filter(v => v >= 40).length;
+  const snowDays = weathercode.filter(c => [71,73,75,77,85,86].includes(c)).length;
+
+  document.getElementById('summary-title').textContent = `📍 ${geo.name}`;
+  document.getElementById('summary-sub').textContent =
+    [geo.admin1, geo.country].filter(Boolean).join(', ');
+
+  // 예보 범위 벗어남 경고
+  const warnEl = document.getElementById('forecast-warn');
+  if (CAL.endDate > CAL.forecastEnd) {
+    warnEl.style.display = 'block';
+    warnEl.textContent = `⚠️ 선택하신 기간 중 일부(${fmtKo(addDays(CAL.forecastEnd, 1))} 이후)는 16일 예보 범위를 벗어나 데이터가 없을 수 있어요.`;
+  } else {
+    warnEl.style.display = 'none';
+  }
+
+  // Recommendation chips
+  const umbrellaRec = getUmbrellaRec(rainDays, n, maxProb, snowDays);
+  const outfitRec   = getOutfitRec(avgTemp, avgMin);
+  const coatRec     = getCoatRec(avgMin, avgMax);
+  const tempLabel   = `평균 ${Math.round(avgMin)}°~${Math.round(avgMax)}°C`;
+
+  document.getElementById('chips-row').innerHTML = `
+    <div class="chip rain">
+      <span class="chip-icon">${umbrellaRec.icon}</span>
+      <div class="chip-text">
+        <span class="chip-label">우산</span>
+        <span class="chip-value">${umbrellaRec.text}</span>
+      </div>
+    </div>
+    <div class="chip outfit">
+      <span class="chip-icon">${outfitRec.icon}</span>
+      <div class="chip-text">
+        <span class="chip-label">옷차림</span>
+        <span class="chip-value">${outfitRec.text}</span>
+      </div>
+    </div>
+    <div class="chip coat">
+      <span class="chip-icon">${coatRec.icon}</span>
+      <div class="chip-text">
+        <span class="chip-label">외투</span>
+        <span class="chip-value">${coatRec.text}</span>
+      </div>
+    </div>
+    <div class="chip temp">
+      <span class="chip-icon">🌡️</span>
+      <div class="chip-text">
+        <span class="chip-label">기온 범위</span>
+        <span class="chip-value">${tempLabel}</span>
+      </div>
+    </div>
+  `;
+
+  // Day cards
+  const DOW = ['일','월','화','수','목','금','토'];
+  document.getElementById('day-cards').innerHTML = time.map((dateStr, i) => {
+    const d   = parseLocal(dateStr);
+    const dow = DOW[d.getDay()];
+    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+    const wmo   = getWmo(weathercode[i]);
+    const tmax  = temperature_2m_max[i] != null ? Math.round(temperature_2m_max[i]) : '--';
+    const tmin  = temperature_2m_min[i] != null ? Math.round(temperature_2m_min[i]) : '--';
+    const prob  = precipitation_probability_max[i] ?? 0;
+    const precip = precipitation_sum[i] != null ? precipitation_sum[i].toFixed(1) : '0.0';
+    const badge = getDayBadge(weathercode[i], prob, temperature_2m_min[i]);
+    return `
+      <div class="day-card ${wmo.type}-day">
+        <div>
+          <div class="day-dow ${isWeekend ? 'weekend' : ''}">${dow}요일</div>
+          <div class="day-date">${d.getMonth()+1}/${d.getDate()}</div>
+        </div>
+        <div class="day-info">
+          <span class="day-weather-icon">${wmo.icon}</span>
+          <div>
+            <div style="font-weight:600;font-size:.9rem">${wmo.desc}</div>
+            ${prob > 20
+              ? `<div class="day-precip">☔ 강수확률 ${prob}% · ${precip}mm</div>`
+              : `<div class="day-desc">강수확률 ${prob}%</div>`}
+          </div>
+        </div>
+        <div class="day-right">
+          <div class="day-temp-max">${tmax}°</div>
+          <div class="day-temp-min">${tmin}°</div>
+          ${badge ? `<div class="day-badge" style="background:${badge.bg};color:${badge.color}">${badge.text}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─────────────────────────────────────────────
+// Recommendation logic
+function getUmbrellaRec(rainDays, totalDays, maxProb, snowDays) {
+  if (snowDays > 0) return { icon: '☂️', text: '눈 대비 필수' };
+  if (rainDays === 0 && maxProb < 30) return { icon: '🌞', text: '필요 없음' };
+  if (rainDays >= Math.ceil(totalDays * 0.5) || maxProb >= 70) return { icon: '☔', text: '꼭 챙기세요' };
+  if (rainDays >= 1 || maxProb >= 40) return { icon: '🌂', text: '챙기는 게 좋아요' };
+  return { icon: '☂️', text: '여유 있으면 챙기세요' };
+}
+function getOutfitRec(avgTemp, avgMin) {
+  if (avgTemp >= 28) return { icon: '👙', text: '반팔·반바지' };
+  if (avgTemp >= 23) return { icon: '👕', text: '반팔·얇은 긴팔' };
+  if (avgTemp >= 17) return { icon: '👔', text: '긴팔·얇은 가디건' };
+  if (avgTemp >= 11) return { icon: '🧥', text: '니트·가디건' };
+  if (avgTemp >= 4)  return { icon: '🧣', text: '두꺼운 옷·코트' };
+  return { icon: '🧤', text: '패딩·방한복 필수' };
+}
+function getCoatRec(avgMin, avgMax) {
+  if (avgMin >= 20) return { icon: '❌', text: '필요 없음' };
+  if (avgMin >= 15) return { icon: '🌙', text: '저녁엔 가디건' };
+  if (avgMin >= 9)  return { icon: '🧥', text: '얇은 재킷' };
+  if (avgMin >= 3)  return { icon: '🧥', text: '코트 추천' };
+  return { icon: '🧥', text: '패딩 필수' };
+}
+function getDayBadge(code, prob, tmin) {
+  if ([71,73,75,77,85,86].includes(code)) return { text: '❄️ 눈', bg: '#e0e7ff', color: '#3730a3' };
+  if ([95,96,99].includes(code)) return { text: '⛈️ 뇌우', bg: '#fee2e2', color: '#991b1b' };
+  if (prob >= 70) return { text: '우산 필수', bg: '#dbeafe', color: '#1e40af' };
+  if (tmin != null && tmin <= 0) return { text: '🥶 영하', bg: '#ede9fe', color: '#5b21b6' };
+  if (code === 0 || code === 1) return { text: '☀️ 맑음', bg: '#fef9c3', color: '#713f12' };
+  return null;
+}
+
+// ─────────────────────────────────────────────
+// Utils
+function avg(arr) {
+  const v = arr.filter(x => x != null);
+  return v.reduce((a, b) => a + b, 0) / v.length;
+}
+function setState(state) {
+  document.getElementById('loading-msg').style.display = state === 'loading' ? 'block' : 'none';
+  document.getElementById('error-msg').style.display   = state === 'error'   ? 'block' : 'none';
+  document.getElementById('summary').style.display     = state === 'result'  ? 'block' : 'none';
+  const btn = document.getElementById('search-btn');
+  btn.disabled    = state === 'loading';
+  btn.textContent = state === 'loading' ? '조회 중...' : '🌤️ 날씨 확인하기';
+}
+
+// Enter key on destination
+document.getElementById('dest-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { hideSuggest(); searchWeather(); }
+});
+</script>
+</body>
+</html>

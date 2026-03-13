@@ -36,7 +36,7 @@
       background: linear-gradient(120deg, #4F8EF7 0%, #818cf8 100%);
       color: white;
       text-align: center;
-      padding: 48px 20px 40px;
+      padding: 44px 20px 44px;
       position: relative;
       overflow: hidden;
     }
@@ -50,18 +50,24 @@
       bottom: -40px; left: -40px; width: 160px; height: 160px;
       background: rgba(255,255,255,0.06); border-radius: 50%;
     }
-    header h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; }
-    header p  { margin-top: 8px; font-size: 1rem; opacity: 0.85; }
-    .forecast-badge {
-      display: inline-block;
-      margin-top: 14px;
-      background: rgba(255,255,255,0.18);
-      border: 1px solid rgba(255,255,255,0.35);
-      border-radius: 999px;
-      padding: 6px 18px;
-      font-size: 0.88rem;
-      font-weight: 600;
-      letter-spacing: 0.2px;
+    .forecast-label {
+      font-size: 0.8rem; font-weight: 600;
+      opacity: 0.7; letter-spacing: 1.5px; text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .forecast-date {
+      font-size: 3rem; font-weight: 900;
+      letter-spacing: -1px; line-height: 1.1;
+    }
+    .forecast-date .until { font-size: 1.6rem; font-weight: 700; opacity: 0.9; }
+    .forecast-tagline {
+      margin-top: 10px;
+      font-size: 1.05rem; font-weight: 600; opacity: 0.88;
+      letter-spacing: -0.2px;
+    }
+    .header-app-name {
+      margin-top: 18px;
+      font-size: 0.82rem; opacity: 0.55; letter-spacing: 0.3px;
     }
 
     /* ── Container ── */
@@ -354,9 +360,12 @@
 <body>
 
 <header>
-  <h1>✈️ 여행 날씨 체커</h1>
-  <p>여행지와 기간을 입력하면 우산·옷차림·외투를 알려드려요</p>
-  <div class="forecast-badge" id="forecast-range-note">📅 날씨 확인 가능 기간 로딩 중...</div>
+  <div class="forecast-label">✈️ 날씨 예보 확인 가능</div>
+  <div class="forecast-date" id="forecast-range-note">
+    <span id="forecast-date-text">— 월 —일</span><span class="until">까지!</span>
+  </div>
+  <div class="forecast-tagline">우산 챙겨? 외투 필요해? 반팔? 긴팔?</div>
+  <div class="header-app-name">여행 날씨 체커 · 여행지와 기간을 입력하면 알려드려요</div>
 </header>
 
 <div class="container">
@@ -470,8 +479,8 @@ const CAL = {
 
   // 헤더 예보 가능 기간 표시
   const fe = CAL.forecastEnd;
-  document.getElementById('forecast-range-note').textContent =
-    `📅 ${fe.getMonth()+1}월 ${fe.getDate()}일까지의 날씨 확인 가능!`;
+  document.getElementById('forecast-date-text').textContent =
+    `${fe.getMonth()+1}월 ${fe.getDate()}일`;
 })();
 
 function updateDisplays() {

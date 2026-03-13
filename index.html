@@ -349,6 +349,67 @@
       font-size: 0.78rem; color: #94a3b8;
     }
 
+    /* ── Packing List ── */
+    #packing-section { margin-top: 36px; }
+    .packing-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; flex-wrap: wrap; gap: 10px;
+    }
+    .packing-title { font-size: 1.1rem; font-weight: 800; }
+    .packing-export { display: flex; gap: 8px; }
+    .btn-export {
+      display: flex; align-items: center; gap: 5px;
+      padding: 7px 14px; border-radius: 8px; border: 1.5px solid var(--border);
+      background: white; font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; color: var(--text); transition: all 0.15s;
+    }
+    .btn-export:hover { border-color: var(--primary); color: var(--primary); background: var(--secondary); }
+
+    .packing-category {
+      margin-bottom: 12px; background: white;
+      border-radius: var(--radius); box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+    .cat-accent-bar { height: 4px; }
+    .cat-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 14px 18px; cursor: pointer; user-select: none;
+      transition: background 0.15s;
+    }
+    .cat-header:hover { background: #fafbff; }
+    .cat-icon { font-size: 1.3rem; }
+    .cat-title { font-weight: 700; font-size: 0.95rem; flex: 1; }
+    .cat-progress { font-size: 0.78rem; color: var(--text-light); font-weight: 500; }
+    .cat-chevron { font-size: 0.8rem; color: var(--text-light); transition: transform 0.2s; }
+    .cat-chevron.open { transform: rotate(180deg); }
+
+    .cat-body { padding: 0 18px 12px; display: none; }
+    .cat-body.open { display: block; }
+
+    .checklist-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 2px; border-bottom: 1px solid #f1f5f9; cursor: pointer;
+    }
+    .checklist-item:last-child { border-bottom: none; }
+    .checklist-item input[type="checkbox"] {
+      width: 17px; height: 17px; cursor: pointer;
+      accent-color: var(--primary); flex-shrink: 0;
+    }
+    .checklist-item .item-label {
+      flex: 1; font-size: 0.88rem; line-height: 1.4; cursor: pointer;
+      transition: color 0.15s;
+    }
+    .checklist-item.done .item-label {
+      text-decoration: line-through; color: #94a3b8;
+    }
+    .item-tag {
+      font-size: 0.68rem; padding: 2px 7px; border-radius: 999px;
+      font-weight: 700; flex-shrink: 0;
+    }
+    .tag-required { background: #fee2e2; color: #dc2626; }
+    .tag-weather  { background: #dbeafe; color: #1d4ed8; }
+    .tag-tip      { background: #fef9c3; color: #92400e; }
+
     @media (max-width: 480px) {
       header h1 { font-size: 1.5rem; }
       .search-card { padding: 20px 16px; }
@@ -430,6 +491,19 @@
     <div id="forecast-warn" class="forecast-warn" style="display:none"></div>
     <div class="chips-row" id="chips-row"></div>
     <div class="day-cards" id="day-cards"></div>
+
+    <!-- 준비물 체크리스트 -->
+    <div id="packing-section" style="display:none">
+      <div class="packing-header">
+        <div class="packing-title">🎒 여행 준비물 체크리스트</div>
+        <div class="packing-export">
+          <button class="btn-export" onclick="exportCSV()">📥 CSV 저장</button>
+          <button class="btn-export" onclick="exportExcel()">📊 Excel 저장</button>
+        </div>
+      </div>
+      <div id="packing-categories"></div>
+    </div>
+
     <div class="footer-note">데이터 제공: Open-Meteo (최대 16일 예보) · WMO 기상 코드 기반</div>
   </div>
 </div>
@@ -851,6 +925,11 @@ function renderResult(geo, daily, startDate, endDate) {
 
   // Day cards
   const DOW = ['일','월','화','수','목','금','토'];
+  // 준비물 체크리스트 생성
+  const tripDays = time.length;
+  const packingCategories = generatePackingList(geo, avgTemp, avgMin, tripDays, rainDays, snowDays);
+  renderPackingList(packingCategories);
+
   document.getElementById('day-cards').innerHTML = time.map((dateStr, i) => {
     const d   = parseLocal(dateStr);
     const dow = DOW[d.getDay()];
@@ -916,6 +995,283 @@ function getDayBadge(code, prob, tmin) {
   if (tmin != null && tmin <= 0) return { text: '🥶 영하', bg: '#ede9fe', color: '#5b21b6' };
   if (code === 0 || code === 1) return { text: '☀️ 맑음', bg: '#fef9c3', color: '#713f12' };
   return null;
+}
+
+// ─────────────────────────────────────────────
+// Packing List
+let packingData = [];   // 전체 항목 (내보내기용)
+
+function generatePackingList(geo, avgTemp, avgMin, tripDays, rainDays, snowDays) {
+  const isHot   = avgTemp >= 26;
+  const isWarm  = avgTemp >= 20 && avgTemp < 26;
+  const isCool  = avgTemp >= 12 && avgTemp < 20;
+  const isCold  = avgTemp >= 3  && avgTemp < 12;
+  const isFrozen= avgTemp < 3;
+  const hasRain = rainDays > 0;
+  const hasSnow = snowDays > 0;
+  const nights  = tripDays - 1;
+
+  const categories = [
+    {
+      id: 'must',
+      icon: '⚠️',
+      title: '꼭 확인하세요',
+      accent: '#f97316',
+      items: [
+        { text: '여권 유효기간 확인 (출발일 기준 6개월 이상)', tag: 'required' },
+        { text: '비자 필요 여부 확인 (외교부 해외안전여행 사이트)', tag: 'required' },
+        { text: '입국 서류 / 건강 요건 확인', tag: 'required' },
+        { text: '여행자 보험 가입', tag: 'required' },
+        { text: '항공권 · 숙소 예약 확인서 출력 or 저장', tag: 'required' },
+        { text: '통신 방법 결정 (유심 / 이심 / 와이파이 도시락)', tag: 'required' },
+        { text: `현지 통화 환전 (${geo.country || '현지'} 화폐)`, tag: null },
+        { text: '해외 결제 가능 카드 준비', tag: null },
+      ]
+    },
+    {
+      id: 'clothes',
+      icon: '👕',
+      title: '옷 / 신발',
+      accent: '#8b5cf6',
+      items: [
+        ...(isHot   ? [
+          { text: `반팔 티셔츠 ${Math.max(3, nights)}장`, tag: 'weather' },
+          { text: '반바지 또는 얇은 원피스', tag: 'weather' },
+          { text: '수영복 (해변·수영장 방문 예정 시)', tag: null },
+          { text: '얇은 가디건 (냉방 대비)', tag: 'tip' },
+        ] : []),
+        ...(isWarm  ? [
+          { text: `반팔 티셔츠 ${Math.max(2, nights)}장`, tag: 'weather' },
+          { text: '긴팔 셔츠 1~2장', tag: 'weather' },
+          { text: '얇은 긴 바지', tag: null },
+        ] : []),
+        ...(isCool  ? [
+          { text: `긴팔 티셔츠 ${Math.max(2, nights)}장`, tag: 'weather' },
+          { text: '얇은 니트 또는 후드', tag: 'weather' },
+          { text: '긴 바지', tag: null },
+          { text: '얇은 재킷', tag: 'weather' },
+        ] : []),
+        ...(isCold  ? [
+          { text: `두꺼운 긴팔 · 니트 ${Math.max(2, nights)}장`, tag: 'weather' },
+          { text: '코트 또는 두꺼운 재킷', tag: 'weather' },
+          { text: '내복 · 히트텍', tag: 'tip' },
+          { text: '목도리', tag: 'weather' },
+        ] : []),
+        ...(isFrozen? [
+          { text: `내복 · 히트텍 ${Math.max(2, nights)}벌`, tag: 'weather' },
+          { text: '패딩 점퍼', tag: 'weather' },
+          { text: '장갑 · 목도리 · 귀마개', tag: 'weather' },
+          { text: '핫팩', tag: 'tip' },
+        ] : []),
+        ...(hasSnow ? [{ text: '방수 등산화 또는 부츠', tag: 'weather' }] : []),
+        { text: '속옷·양말', tag: null },
+        { text: '편한 운동화 · 슬리퍼', tag: null },
+        { text: '잠옷', tag: null },
+      ]
+    },
+    {
+      id: 'weather-gear',
+      icon: '☂️',
+      title: '날씨 대비',
+      accent: '#3b82f6',
+      items: [
+        ...(hasRain ? [
+          { text: '우산 또는 접이식 우산', tag: 'weather' },
+          { text: '우비 / 레인코트', tag: 'weather' },
+          { text: '방수 가방 커버', tag: null },
+        ] : []),
+        ...(hasSnow ? [
+          { text: '방수 장갑', tag: 'weather' },
+          { text: '미끄럼 방지 신발 (아이젠)', tag: 'tip' },
+        ] : []),
+        ...(isHot   ? [
+          { text: '선크림 (SPF50+ 권장)', tag: 'weather' },
+          { text: '선글라스', tag: 'weather' },
+          { text: '모자 (챙 있는 것)', tag: 'weather' },
+        ] : []),
+        ...(!hasRain && !hasSnow && !isHot ? [
+          { text: '선크림 (자외선 차단)', tag: null },
+        ] : []),
+      ].filter(Boolean)
+    },
+    {
+      id: 'toiletries',
+      icon: '🧴',
+      title: '세면 / 미용',
+      accent: '#10b981',
+      items: [
+        { text: '치약 · 칫솔', tag: null },
+        { text: '샴푸 · 컨디셔너 (소분)', tag: null },
+        { text: '바디워시', tag: null },
+        { text: '면도기', tag: null },
+        { text: '화장품 기초라인 (소분)', tag: null },
+        ...(isHot ? [{ text: '데오도란트', tag: 'tip' }] : []),
+        { text: '생리용품 (필요 시)', tag: null },
+        { text: '여행용 파우치', tag: null },
+        { text: '100ml 이하 소분 용기 (기내 반입 시)', tag: 'tip' },
+      ]
+    },
+    {
+      id: 'electronics',
+      icon: '🔌',
+      title: '전자기기',
+      accent: '#f59e0b',
+      items: [
+        { text: '스마트폰 + 충전 케이블', tag: null },
+        { text: '해외 여행용 어댑터 (돼지코)', tag: 'required' },
+        { text: '보조 배터리 (기내 반입 필수 — 위탁 불가)', tag: 'tip' },
+        { text: '노트북 / 태블릿 (필요 시)', tag: null },
+        { text: '카메라 + 메모리카드', tag: null },
+        { text: '이어폰 / 헤드셋', tag: null },
+        { text: '멀티탭 (장기 여행 시)', tag: null },
+      ]
+    },
+    {
+      id: 'docs',
+      icon: '📄',
+      title: '여행 서류',
+      accent: '#ef4444',
+      items: [
+        { text: '여권 (+ 사본 별도 보관)', tag: 'required' },
+        { text: '비자 (필요 시)', tag: null },
+        { text: '항공권 e-티켓', tag: 'required' },
+        { text: '숙소 예약 확인서', tag: 'required' },
+        { text: '여행자 보험 증서', tag: 'required' },
+        { text: '국제운전면허증 (렌트 예정 시)', tag: null },
+        { text: '비상 연락처 메모 (분실 대비)', tag: 'tip' },
+        { text: '여권 사진 여분 2장', tag: 'tip' },
+      ]
+    },
+    {
+      id: 'medicine',
+      icon: '💊',
+      title: '의약품',
+      accent: '#ec4899',
+      items: [
+        { text: '개인 처방약 (충분한 양 + 처방전)', tag: 'required' },
+        { text: '소화제', tag: null },
+        { text: '지사제', tag: null },
+        { text: '진통제 (타이레놀 등)', tag: null },
+        { text: '멀미약 (비행기·배 탑승 시)', tag: null },
+        { text: '밴드 · 상처 연고', tag: null },
+        ...(isHot ? [{ text: '모기 기피제', tag: 'weather' }] : []),
+        ...(isCold || isFrozen ? [{ text: '핫팩 / 손난로', tag: 'weather' }] : []),
+      ]
+    },
+  ].filter(cat => cat.items.length > 0);
+
+  return categories;
+}
+
+function renderPackingList(categories) {
+  packingData = categories;
+  const container = document.getElementById('packing-categories');
+
+  container.innerHTML = categories.map((cat, ci) => {
+    const itemsHtml = cat.items.map((item, ii) => {
+      const id = `chk-${ci}-${ii}`;
+      const tagHtml = item.tag === 'required' ? `<span class="item-tag tag-required">필수</span>`
+                    : item.tag === 'weather'  ? `<span class="item-tag tag-weather">날씨</span>`
+                    : item.tag === 'tip'      ? `<span class="item-tag tag-tip">팁</span>`
+                    : '';
+      return `
+        <div class="checklist-item" onclick="toggleCheck('${id}')">
+          <input type="checkbox" id="${id}" onclick="event.stopPropagation();toggleCheck('${id}')">
+          <label class="item-label" for="${id}">${item.text}</label>
+          ${tagHtml}
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="packing-category">
+        <div class="cat-accent-bar" style="background:${cat.accent}"></div>
+        <div class="cat-header" onclick="toggleCat('cat-body-${ci}', this)">
+          <span class="cat-icon">${cat.icon}</span>
+          <span class="cat-title">${cat.title}</span>
+          <span class="cat-progress" id="cat-prog-${ci}">0 / ${cat.items.length}</span>
+          <span class="cat-chevron open">▼</span>
+        </div>
+        <div class="cat-body open" id="cat-body-${ci}">${itemsHtml}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('packing-section').style.display = 'block';
+}
+
+function toggleCat(bodyId, header) {
+  const body = document.getElementById(bodyId);
+  const chevron = header.querySelector('.cat-chevron');
+  body.classList.toggle('open');
+  chevron.classList.toggle('open');
+}
+
+function toggleCheck(id) {
+  const cb = document.getElementById(id);
+  cb.checked = !cb.checked;
+  const item = cb.closest('.checklist-item');
+  item.classList.toggle('done', cb.checked);
+  // 진행률 업데이트
+  updateCatProgress(cb);
+}
+
+function updateCatProgress(cb) {
+  const body = cb.closest('.cat-body');
+  if (!body) return;
+  const allCbs = body.querySelectorAll('input[type="checkbox"]');
+  const doneCbs = body.querySelectorAll('input[type="checkbox"]:checked');
+  const idx = body.id.replace('cat-body-', '');
+  const prog = document.getElementById(`cat-prog-${idx}`);
+  if (prog) prog.textContent = `${doneCbs.length} / ${allCbs.length}`;
+}
+
+// ─────────────────────────────────────────────
+// Export
+function getChecklistRows() {
+  const rows = [['카테고리', '항목', '태그', '완료 여부']];
+  document.querySelectorAll('.packing-category').forEach(cat => {
+    const title = cat.querySelector('.cat-title').textContent;
+    cat.querySelectorAll('.checklist-item').forEach(item => {
+      const label = item.querySelector('.item-label').textContent;
+      const tag   = item.querySelector('.item-tag')?.textContent || '';
+      const done  = item.classList.contains('done') ? '✅' : '⬜';
+      rows.push([title, label, tag, done]);
+    });
+  });
+  return rows;
+}
+
+function exportCSV() {
+  const rows = getChecklistRows();
+  const bom  = '\uFEFF';  // UTF-8 BOM (엑셀 한글 깨짐 방지)
+  const csv  = bom + rows.map(r => r.map(c => `"${c.replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a    = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: `여행준비물_${document.getElementById('summary-title').textContent.replace('📍 ','')}.csv`
+  });
+  a.click();
+}
+
+function exportExcel() {
+  const rows    = getChecklistRows();
+  const header  = rows[0];
+  const data    = rows.slice(1);
+  // XLSX 없이 순수 JS로 .xlsx 대신 .xls (HTML table 방식) 생성
+  let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+    xmlns:x="urn:schemas-microsoft-com:office:excel"
+    xmlns="http://www.w3.org/TR/REC-html40">
+  <head><meta charset="UTF-8"></head><body><table>`;
+  html += '<tr>' + header.map(h => `<th>${h}</th>`).join('') + '</tr>';
+  data.forEach(r => {
+    html += '<tr>' + r.map(c => `<td>${c}</td>`).join('') + '</tr>';
+  });
+  html += '</table></body></html>';
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  const a    = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: `여행준비물_${document.getElementById('summary-title').textContent.replace('📍 ','')}.xls`
+  });
+  a.click();
 }
 
 // ─────────────────────────────────────────────

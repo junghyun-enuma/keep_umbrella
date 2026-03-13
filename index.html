@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>여행 날씨 체커 ✈️</title>
+  <title>여행준비물 체커 - adhd인이 내가쓰려고 만든</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -58,8 +58,10 @@
     .forecast-date {
       font-size: 3rem; font-weight: 900;
       letter-spacing: -1px; line-height: 1.1;
+      color: #fde68a;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.18);
     }
-    .forecast-date .until { font-size: 1.6rem; font-weight: 700; opacity: 0.9; }
+    .forecast-date .until { font-size: 1.6rem; font-weight: 700; color: #fde68a; }
     .forecast-tagline {
       margin-top: 10px;
       font-size: 1.2rem; font-weight: 800; opacity: 0.95;
@@ -440,13 +442,12 @@
 <body>
 
 <header>
-  <div class="forecast-label">✈️ 날씨 예보 확인 가능</div>
   <div class="forecast-date" id="forecast-range-note">
-    <span id="forecast-date-text">— 월 —일</span><span class="until">까지!</span>
+    <span id="forecast-date-text">— 월 —일</span><span class="until">까지 날씨 예보 가능</span>
   </div>
   <div class="forecast-tagline">여행 준비물 목록 짜준다</div>
   <div class="forecast-tagline2">우산 챙겨? 외투 필요해? 반팔? 긴팔?</div>
-  <div class="header-app-name">여행 날씨 체커 · 여행지와 기간을 입력하면 알려드려요</div>
+  <div class="header-app-name">여행지와 기간을 입력하면 날씨까지 반영해드림</div>
 </header>
 
 <div class="container">
